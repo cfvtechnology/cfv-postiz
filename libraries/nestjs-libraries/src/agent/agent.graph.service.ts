@@ -16,21 +16,47 @@ import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/me
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { GeneratorDto } from '@gitroom/nestjs-libraries/dtos/generator/generator.dto';
 
-const tools = !process.env.TAVILY_API_KEY
-  ? []
-  : [new TavilySearch({ maxResults: 3 })];
-const toolNode = new ToolNode(tools);
+let _tools: InstanceType<typeof TavilySearch>[] | null = null;
+let _toolNode: ToolNode | null = null;
+let _model: ChatOpenAI | null = null;
+let _dalle: DallEAPIWrapper | null = null;
 
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
+const getTools = () => {
+  if (!_tools) {
+    _tools = !process.env.TAVILY_API_KEY
+      ? []
+      : [new TavilySearch({ maxResults: 3 })];
+  }
+  return _tools;
+};
 
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'dall-e-3',
-});
+const getToolNode = () => {
+  if (!_toolNode) {
+    _toolNode = new ToolNode(getTools());
+  }
+  return _toolNode;
+};
+
+const getModel = () => {
+  if (!_model) {
+    _model = new ChatOpenAI({
+      apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
+      model: 'gpt-4.1',
+      temperature: 0.7,
+    });
+  }
+  return _model;
+};
+
+const getDalle = () => {
+  if (!_dalle) {
+    _dalle = new DallEAPIWrapper({
+      apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
+      model: 'dall-e-3',
+    });
+  }
+  return _dalle;
+};
 
 interface WorkflowChannelsState {
   messages: BaseMessage[];
@@ -132,7 +158,7 @@ export class AgentGraphService {
     });
 
   async startCall(state: WorkflowChannelsState) {
-    const runTools = model.bindTools(tools);
+    const runTools = getModel().bindTools(getTools());
     const response = await ChatPromptTemplate.fromTemplate(
       `
     Today is ${dayjs().format()}, You are an assistant that gets a social media post or requests for a social media post.
@@ -156,7 +182,7 @@ export class AgentGraphService {
 
   async findCategories(state: WorkflowChannelsState) {
     const allCategories = await this._postsService.findAllExistingCategories();
-    const structuredOutput = model.withStructuredOutput(category);
+    const structuredOutput = getModel().withStructuredOutput(category);
     const { category: outputCategory } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -183,7 +209,7 @@ export class AgentGraphService {
       return { topic: null };
     }
 
-    const structuredOutput = model.withStructuredOutput(topic);
+    const structuredOutput = getModel().withStructuredOutput(topic);
     const { topic: outputTopic } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -211,7 +237,7 @@ export class AgentGraphService {
   }
 
   async generateHook(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(hook);
+    const structuredOutput = getModel().withStructuredOutput(hook);
     const { hook: outputHook } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets content for a social media post, and generate only the hook.
@@ -253,7 +279,7 @@ export class AgentGraphService {
   }
 
   async generateContent(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(
+    const structuredOutput = getModel().withStructuredOutput(
       contentZod(!!state.isPicture, state.format)
     );
     const { content: outputContent } = await ChatPromptTemplate.fromTemplate(
@@ -320,7 +346,7 @@ export class AgentGraphService {
 
     const newContent = await Promise.all(
       (state.content || []).map(async (p) => {
-        const image = await dalle.invoke(p.prompt!);
+        const image = await getDalle().invoke(p.prompt!);
         return {
           ...p,
           image,
@@ -374,7 +400,7 @@ export class AgentGraphService {
     const state = AgentGraphService.state();
     const workflow = state
       .addNode('agent', this.startCall.bind(this))
-      .addNode('research', toolNode)
+      .addNode('research', getToolNode())
       .addNode('save-research', this.saveResearch.bind(this))
       .addNode('find-category', this.findCategories.bind(this))
       .addNode('find-topic', this.findTopic.bind(this))

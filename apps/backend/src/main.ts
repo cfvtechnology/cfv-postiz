@@ -4,9 +4,6 @@ import compression from 'compression';
 
 import { loadSwagger } from '@gitroom/helpers/swagger/load.swagger';
 import { json } from 'express';
-import { Runtime } from '@temporalio/worker';
-Runtime.install({ shutdownSignals: [] });
-
 process.env.TZ = 'UTC';
 
 import cookieParser from 'cookie-parser';
@@ -47,7 +44,9 @@ async function start() {
     },
   });
 
-  await startMcp(app);
+  if (process.env.OPENAI_API_KEY) {
+    await startMcp(app);
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({

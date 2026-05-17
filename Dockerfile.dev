@@ -25,4 +25,8 @@ COPY var/docker/nginx.conf /etc/nginx/nginx.conf
 RUN pnpm install
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 
+# Next.js standalone mode: copy static assets and public folder to the standalone output
+RUN cp -r /app/apps/frontend/public /app/apps/frontend/.next/standalone/apps/frontend/public && \
+    cp -r /app/apps/frontend/.next/static /app/apps/frontend/.next/standalone/apps/frontend/.next/static
+
 CMD ["sh", "-c", "nginx && pnpm run pm2"]

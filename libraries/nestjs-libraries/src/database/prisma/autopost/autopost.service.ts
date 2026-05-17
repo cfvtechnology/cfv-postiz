@@ -19,7 +19,38 @@ import { TypedSearchAttributes } from '@temporalio/common';
 import {
   organizationId,
 } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
-const parser = new Parser();
+
+let _parser: Parser | null = null;
+let _model: ChatOpenAI | null = null;
+let _dalle: DallEAPIWrapper | null = null;
+
+const getParser = () => {
+  if (!_parser) {
+    _parser = new Parser();
+  }
+  return _parser;
+};
+
+const getModel = () => {
+  if (!_model) {
+    _model = new ChatOpenAI({
+      apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
+      model: 'gpt-4.1',
+      temperature: 0.7,
+    });
+  }
+  return _model;
+};
+
+const getDalle = () => {
+  if (!_dalle) {
+    _dalle = new DallEAPIWrapper({
+      apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
+      model: 'gpt-image-1',
+    });
+  }
+  return _dalle;
+};
 
 interface WorkflowChannelsState {
   messages: BaseMessage[];
@@ -34,17 +65,6 @@ interface WorkflowChannelsState {
     description: string;
   };
 }
-
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
-
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-image-1',
-});
 
 const generateContent = z.object({
   socialMediaPostContent: z
@@ -134,7 +154,7 @@ export class AutopostService {
 
   async loadXML(url: string) {
     try {
-      const { items } = await parser.parseURL(url);
+      const { items } = await getParser().parseURL(url);
       const findLast = items.reduce(
         (all: any, current: any) => {
           if (dayjs(current.pubDate).isAfter(all.pubDate)) {
@@ -215,7 +235,7 @@ export class AutopostService {
       };
     }
 
-    const structuredOutput = model.withStructuredOutput(generateContent);
+    const structuredOutput = getModel().withStructuredOutput(generateContent);
     const { socialMediaPostContent } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets raw 'description' of a content and generate a social media post content.
@@ -242,7 +262,7 @@ export class AutopostService {
   }
 
   async generatePicture(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(dallePrompt);
+    const structuredOutput = getModel().withStructuredOutput(dallePrompt);
     const { generatedTextToBeSentToDallE } =
       await ChatPromptTemplate.fromTemplate(
         `
@@ -257,7 +277,7 @@ export class AutopostService {
           content: state.load.description || state.description,
         });
 
-    const image = await dalle.invoke(generatedTextToBeSentToDallE);
+    const image = await getDalle().invoke(generatedTextToBeSentToDallE);
 
     return { ...state, image };
   }

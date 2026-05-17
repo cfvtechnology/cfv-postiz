@@ -9,7 +9,8 @@
     "postinstall": "node scripts/fetch-gtm.mjs",
     "build": "next build",
     "build:sentry": "dotenv -e ../../.env -- next build",
-    "start": "dotenv -e ../../.env -- next start -p 4200",
+    "start": "dotenv -e ../../.env -- sh -c 'PORT=4200 HOSTNAME=0.0.0.0 node .next/standalone/apps/frontend/server.js'",
+    "start:legacy": "dotenv -e ../../.env -- next start -p 4200",
     "pm2": "pm2 start pnpm --name frontend -- start"
   },
   "keywords": [],

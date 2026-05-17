@@ -3,6 +3,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   experimental: {
     proxyTimeout: 90_000,
   },
@@ -22,8 +23,8 @@ const nextConfig = {
   },
   reactStrictMode: false,
   transpilePackages: ['crypto-hash'],
-  // Enable production sourcemaps for Sentry
-  productionBrowserSourceMaps: true,
+  // Enable production sourcemaps for Sentry only when Sentry is configured
+  productionBrowserSourceMaps: !!(process.env.SENTRY_ORG && process.env.SENTRY_AUTH_TOKEN),
 
   // Custom webpack config to ensure sourcemaps are generated properly
   webpack: (config, { buildId, dev, isServer, defaultLoaders }) => {
