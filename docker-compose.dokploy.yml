@@ -2,7 +2,7 @@ services:
   postiz:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_VERSION: "1.0.0"
     container_name: postiz
